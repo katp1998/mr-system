@@ -2,7 +2,7 @@
 
 A comprehensive system that uses Generative Adversarial Networks (GANs) for Music Emotion Recognition on pop piano music, specifically designed to work with the EMOPIA dataset. The system can classify emotions, generate synthetic music features, and provide emotion-based music recommendations.
 
-## 🎵 Features
+## Features
 
 ### Core Functionality
 - **Emotion Classification**: Automatically classify MIDI files into 4 emotion categories:
@@ -35,7 +35,7 @@ A comprehensive system that uses Generative Adversarial Networks (GANs) for Musi
 - **Cosine Similarity**: Uses cosine similarity for finding similar tracks
 - **Confidence Scoring**: Provides confidence scores for emotion predictions
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 mr-system/
@@ -47,17 +47,10 @@ mr-system/
 ├── demo.py                 # Demo script for full system
 ├── requirements.txt        # Python dependencies
 ├── README.md              # This file
-├── EMOPIA_1.0/            # EMOPIA dataset
-│   ├── midis/             # MIDI files
-│   ├── label.csv          # Emotion labels
-│   └── metadata_by_song.csv
-└── models/                # Trained models (created after training)
-    ├── generator.pth
-    ├── discriminator.pth
-    └── classifier.pth
+-- add the model paths too!!
 ```
 
-## 🚀 Installation
+## Installation
 
 ### Option 1: Simplified Version (Recommended for quick start)
 ```bash
@@ -75,7 +68,7 @@ pip install -r requirements.txt
 unzip EMOPIA_1.0.zip
 ```
 
-## 🎯 Usage
+## Usage
 
 ### Quick Start (Simplified Version)
 
