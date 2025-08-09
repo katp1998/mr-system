@@ -17,7 +17,7 @@ from mer_interface import MERInterface
 
 def demo_emotion_classification(interface: MERInterface):
     """Demonstrate emotion classification"""
-    print("🎵 === EMOTION CLASSIFICATION DEMO ===")
+    print("=== EMOTION CLASSIFICATION DEMO ===")
     
     # Find a sample MIDI file
     midi_dir = "EMOPIA_1.0/midis"

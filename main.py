@@ -59,6 +59,11 @@ class EMOPIADataset(Dataset):
         self.data = np.array(self.data)
         self.labels = np.array(self.labels)
         
+        # Normalize features (important for neural network training)
+        from sklearn.preprocessing import RobustScaler
+        scaler = RobustScaler()  # More robust to outliers than StandardScaler
+        self.data = scaler.fit_transform(self.data)
+        
         print(f"Loaded {len(self.data)} samples with {len(np.unique(self.labels))} emotion classes")
     
     def extract_midi_features(self, midi_path: str) -> Optional[np.ndarray]:
@@ -71,7 +76,13 @@ class EMOPIADataset(Dataset):
             
             # Tempo features
             tempo = midi_data.estimate_tempo()
-            features.extend([tempo, midi_data.get_tempo_changes()[1].mean()])
+            tempo_changes = midi_data.get_tempo_changes()[1]
+            features.extend([
+                tempo, 
+                tempo_changes.mean(),
+                tempo_changes.std(),
+                len(tempo_changes)  # Number of tempo changes
+            ])
             
             # Pitch features
             all_notes = []
@@ -87,7 +98,10 @@ class EMOPIADataset(Dataset):
                 all_notes.mean(),  # Average pitch
                 all_notes.std(),   # Pitch standard deviation
                 all_notes.max() - all_notes.min(),  # Pitch range
-                len(np.unique(all_notes))  # Unique pitches
+                len(np.unique(all_notes)),  # Unique pitches
+                np.percentile(all_notes, 25),  # 25th percentile
+                np.percentile(all_notes, 75),  # 75th percentile
+                np.median(all_notes)  # Median pitch
             ])
             
             # Duration features
@@ -96,29 +110,59 @@ class EMOPIADataset(Dataset):
                 features.extend([
                     np.mean(durations),
                     np.std(durations),
-                    np.max(durations)
+                    np.max(durations),
+                    np.min(durations),
+                    np.median(durations),
+                    np.percentile(durations, 25),
+                    np.percentile(durations, 75)
                 ])
             else:
-                features.extend([0, 0, 0])
+                features.extend([0, 0, 0, 0, 0, 0, 0])
             
             # Velocity features
             velocities = [note.velocity for instrument in midi_data.instruments for note in instrument.notes]
             if velocities:
                 features.extend([
                     np.mean(velocities),
-                    np.std(velocities)
+                    np.std(velocities),
+                    np.max(velocities),
+                    np.min(velocities),
+                    np.median(velocities)
                 ])
             else:
-                features.extend([0, 0])
+                features.extend([0, 0, 0, 0, 0])
             
             # Time signature features
             if midi_data.time_signature_changes:
                 features.extend([
                     midi_data.time_signature_changes[0].numerator,
-                    midi_data.time_signature_changes[0].denominator
+                    midi_data.time_signature_changes[0].denominator,
+                    len(midi_data.time_signature_changes)  # Number of time signature changes
                 ])
             else:
-                features.extend([4, 4])  # Default 4/4
+                features.extend([4, 4, 1])  # Default 4/4
+            
+            # Advanced features
+            # Note density (notes per second)
+            total_duration = midi_data.get_end_time()
+            note_density = len(all_notes) / total_duration if total_duration > 0 else 0
+            features.append(note_density)
+            
+            # Polyphony (average notes playing simultaneously)
+            time_points = np.linspace(0, total_duration, 100)
+            polyphony = []
+            for t in time_points:
+                active_notes = sum(1 for instrument in midi_data.instruments 
+                                 for note in instrument.notes 
+                                 if note.start <= t <= note.end)
+                polyphony.append(active_notes)
+            features.extend([np.mean(polyphony), np.std(polyphony)])
+            
+            # Key signature features
+            if midi_data.key_signature_changes:
+                features.append(midi_data.key_signature_changes[0].key_number)
+            else:
+                features.append(0)  # C major
             
             # Convert MIDI to audio for librosa analysis
             try:
@@ -235,7 +279,7 @@ class EMOPIADataset(Dataset):
 class Generator(nn.Module):
     """Generator network for GAN"""
     
-    def __init__(self, latent_dim: int = 100, feature_dim: int = 128, num_classes: int = 4):
+    def __init__(self, latent_dim: int = 100, feature_dim: int = 165, num_classes: int = 4):
         super(Generator, self).__init__()
         
         self.latent_dim = latent_dim
@@ -267,7 +311,7 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     """Discriminator network for GAN"""
     
-    def __init__(self, feature_dim: int = 128, num_classes: int = 4):
+    def __init__(self, feature_dim: int = 165, num_classes: int = 4):
         super(Discriminator, self).__init__()
         
         self.feature_dim = feature_dim
@@ -310,35 +354,94 @@ class Discriminator(nn.Module):
         return validity, emotion_labels
 
 class EmotionClassifier(nn.Module):
-    """Simple emotion classifier for real data"""
+    """Advanced emotion classifier with attention mechanism"""
     
-    def __init__(self, feature_dim: int = 128, num_classes: int = 4):
+    def __init__(self, feature_dim: int = 165, num_classes: int = 4):
         super(EmotionClassifier, self).__init__()
         
-        self.model = nn.Sequential(
-            nn.Linear(feature_dim, 256),
+        # Feature attention mechanism
+        self.attention = nn.Sequential(
+            nn.Linear(feature_dim, feature_dim // 2),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Linear(feature_dim // 2, feature_dim),
+            nn.Sigmoid()
+        )
+        
+        # Main classifier
+        self.feature_extractor = nn.Sequential(
+            nn.Linear(feature_dim, 512),
+            nn.ReLU(),
+            nn.BatchNorm1d(512),
+            nn.Dropout(0.4),
+            
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.4),
             
             nn.Linear(256, 128),
             nn.ReLU(),
-            nn.Dropout(0.3),
-            
+            nn.BatchNorm1d(128),
+            nn.Dropout(0.3)
+        )
+        
+        # Multiple heads for different aspects
+        self.head1 = nn.Sequential(
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(0.3),
-            
-            nn.Linear(64, num_classes),
-            nn.Softmax(dim=1)
+            nn.Linear(64, num_classes)
         )
+        
+        self.head2 = nn.Sequential(
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, num_classes)
+        )
+        
+        # Final combination
+        self.combiner = nn.Linear(num_classes * 2, num_classes)
     
     def forward(self, x):
-        return self.model(x)
+        # Apply attention
+        attention_weights = self.attention(x)
+        attended_features = x * attention_weights
+        
+        # Extract features
+        features = self.feature_extractor(attended_features)
+        
+        # Multiple heads
+        out1 = self.head1(features)
+        out2 = self.head2(features)
+        
+        # Combine outputs
+        combined = torch.cat([out1, out2], dim=1)
+        final_output = self.combiner(combined)
+        
+        return final_output
+
+class EnsembleClassifier(nn.Module):
+    """Ensemble of multiple classifiers for better accuracy"""
+    
+    def __init__(self, feature_dim: int = 165, num_classes: int = 4, num_models: int = 3):
+        super(EnsembleClassifier, self).__init__()
+        self.num_models = num_models
+        self.classifiers = nn.ModuleList([
+            EmotionClassifier(feature_dim, num_classes) for _ in range(num_models)
+        ])
+    
+    def forward(self, x):
+        outputs = []
+        for classifier in self.classifiers:
+            outputs.append(classifier(x))
+        # Average the outputs
+        return torch.stack(outputs).mean(dim=0)
 
 class GANMER:
     """GAN-based Music Emotion Recognition System"""
     
-    def __init__(self, feature_dim: int = 128, latent_dim: int = 100, num_classes: int = 4):
+    def __init__(self, feature_dim: int = 165, latent_dim: int = 100, num_classes: int = 4):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.feature_dim = feature_dim
         self.latent_dim = latent_dim
@@ -350,13 +453,16 @@ class GANMER:
         self.classifier = EmotionClassifier(feature_dim, num_classes).to(self.device)
         
         # Optimizers
-        self.g_optimizer = optim.Adam(self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-        self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-        self.c_optimizer = optim.Adam(self.classifier.parameters(), lr=0.001)
+        self.g_optimizer = optim.Adam(self.generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
+        self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999))
+        self.c_optimizer = optim.Adam(self.classifier.parameters(), lr=0.001, weight_decay=1e-5)
         
         # Loss functions
         self.adversarial_loss = nn.BCELoss()
-        self.classification_loss = nn.CrossEntropyLoss()
+        self.classification_loss = nn.CrossEntropyLoss(label_smoothing=0.1)
+        
+        # Focal loss for handling class imbalance
+        self.focal_loss = self._focal_loss
         
         # Emotion mapping
         self.emotion_mapping = {
@@ -369,6 +475,13 @@ class GANMER:
         # Store training data for recommendations
         self.training_data = None
         self.training_labels = None
+    
+    def _focal_loss(self, inputs, targets, alpha=1, gamma=2):
+        """Focal loss to handle class imbalance"""
+        ce_loss = nn.functional.cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-ce_loss)
+        focal_loss = alpha * (1-pt)**gamma * ce_loss
+        return focal_loss.mean()
     
     def train_gan(self, dataloader: DataLoader, epochs: int = 100):
         """Train the GAN model"""
@@ -434,23 +547,34 @@ class GANMER:
             if epoch % 10 == 0:
                 print(f"Epoch [{epoch}/{epochs}] - G Loss: {np.mean(g_losses):.4f}, D Loss: {np.mean(d_losses):.4f}")
     
-    def train_classifier(self, dataloader: DataLoader, epochs: int = 50):
+    def train_classifier(self, train_loader: DataLoader, val_loader: DataLoader = None, epochs: int = 100):
         """Train the emotion classifier on real data"""
         print("Training emotion classifier...")
+        
+        # Learning rate scheduler
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.c_optimizer, mode='min', factor=0.5, patience=10)
+        
+        best_accuracy = 0
+        patience_counter = 0
+        patience = 20  # Early stopping patience
         
         for epoch in range(epochs):
             total_loss = 0
             correct = 0
             total = 0
             
-            for batch_idx, (features, labels) in enumerate(dataloader):
+            # Training mode
+            self.classifier.train()
+            
+            for batch_idx, (features, labels) in enumerate(train_loader):
                 features = features.to(self.device)
                 labels = labels.to(self.device)
                 
                 self.c_optimizer.zero_grad()
                 
                 outputs = self.classifier(features)
-                loss = self.classification_loss(outputs, labels)
+                # Use focal loss for better handling of class imbalance
+                loss = self.focal_loss(outputs, labels)
                 
                 loss.backward()
                 self.c_optimizer.step()
@@ -460,9 +584,69 @@ class GANMER:
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
             
-            if epoch % 10 == 0:
-                accuracy = 100 * correct / total
-                print(f"Epoch [{epoch}/{epochs}] - Loss: {total_loss/len(dataloader):.4f}, Accuracy: {accuracy:.2f}%")
+            # Calculate training accuracy
+            train_accuracy = 100 * correct / total
+            train_loss = total_loss / len(train_loader)
+            
+            # Validation phase
+            if val_loader is not None:
+                self.classifier.eval()
+                val_loss = 0
+                val_correct = 0
+                val_total = 0
+                
+                with torch.no_grad():
+                    for features, labels in val_loader:
+                        features = features.to(self.device)
+                        labels = labels.to(self.device)
+                        
+                        outputs = self.classifier(features)
+                        loss = self.classification_loss(outputs, labels)
+                        
+                        val_loss += loss.item()
+                        _, predicted = torch.max(outputs.data, 1)
+                        val_total += labels.size(0)
+                        val_correct += (predicted == labels).sum().item()
+                
+                val_accuracy = 100 * val_correct / val_total
+                val_loss = val_loss / len(val_loader)
+                
+                # Learning rate scheduling based on validation loss
+                scheduler.step(val_loss)
+                
+                # Early stopping check based on validation accuracy
+                if val_accuracy > best_accuracy:
+                    best_accuracy = val_accuracy
+                    patience_counter = 0
+                    # Save best model
+                    torch.save(self.classifier.state_dict(), 'best_classifier.pth')
+                else:
+                    patience_counter += 1
+                
+                if epoch % 10 == 0:
+                    print(f"Epoch [{epoch}/{epochs}] - Train Loss: {train_loss:.4f}, Train Acc: {train_accuracy:.2f}%, Val Loss: {val_loss:.4f}, Val Acc: {val_accuracy:.2f}%, Best: {best_accuracy:.2f}%")
+            else:
+                # Learning rate scheduling based on training loss
+                scheduler.step(train_loss)
+                
+                # Early stopping check based on training accuracy
+                if train_accuracy > best_accuracy:
+                    best_accuracy = train_accuracy
+                    patience_counter = 0
+                    # Save best model
+                    torch.save(self.classifier.state_dict(), 'best_classifier.pth')
+                else:
+                    patience_counter += 1
+                
+                if epoch % 10 == 0:
+                    print(f"Epoch [{epoch}/{epochs}] - Loss: {train_loss:.4f}, Accuracy: {train_accuracy:.2f}%, Best: {best_accuracy:.2f}%")
+            
+            # Early stopping
+            if patience_counter >= patience:
+                print(f"Early stopping at epoch {epoch} with best accuracy: {best_accuracy:.2f}%")
+                # Load best model
+                self.classifier.load_state_dict(torch.load('best_classifier.pth'))
+                break
     
     def generate_synthetic_data(self, num_samples: int, emotion_label: int) -> np.ndarray:
         """Generate synthetic data for a specific emotion"""
@@ -772,12 +956,12 @@ def main():
     SAVE_DIR = "models"
     
     # Hyperparameters
-    FEATURE_DIM = 148  # Increased from 128 to accommodate 20 new librosa features
+    FEATURE_DIM = 165  # Increased for additional MIDI features
     LATENT_DIM = 100
     NUM_CLASSES = 4
-    BATCH_SIZE = 32
-    GAN_EPOCHS = 50
-    CLASSIFIER_EPOCHS = 30
+    BATCH_SIZE = 8  # Even smaller batch size for better generalization
+    GAN_EPOCHS = 20  # Reduced GAN epochs since it's not the main focus
+    CLASSIFIER_EPOCHS = 120  # More epochs for better classifier training
     
     print("=== GAN-based Music Emotion Recognition System ===")
     print(f"Device: {torch.device('cuda' if torch.cuda.is_available() else 'cpu')}")
@@ -790,19 +974,26 @@ def main():
         print("No valid samples found in dataset!")
         return
     
-    # Split dataset
-    train_data, test_data, train_labels, test_labels = train_test_split(
-        dataset.data, dataset.labels, test_size=0.2, random_state=42, stratify=dataset.labels
+    # Split dataset into train, validation, and test
+    train_data, temp_data, train_labels, temp_labels = train_test_split(
+        dataset.data, dataset.labels, test_size=0.3, random_state=42, stratify=dataset.labels
+    )
+    
+    val_data, test_data, val_labels, test_labels = train_test_split(
+        temp_data, temp_labels, test_size=0.67, random_state=42, stratify=temp_labels
     )
     
     # Create data loaders
     train_dataset = [(torch.FloatTensor(features), label) for features, label in zip(train_data, train_labels)]
+    val_dataset = [(torch.FloatTensor(features), label) for features, label in zip(val_data, val_labels)]
     test_dataset = [(torch.FloatTensor(features), label) for features, label in zip(test_data, test_labels)]
     
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
     
     print(f"Training samples: {len(train_data)}")
+    print(f"Validation samples: {len(val_data)}")
     print(f"Test samples: {len(test_data)}")
     
     # Initialize GAN MER system
@@ -812,7 +1003,38 @@ def main():
     # Train models
     print("\n3. Training models...")
     gan_mer.train_gan(train_loader, epochs=GAN_EPOCHS)
-    gan_mer.train_classifier(train_loader, epochs=CLASSIFIER_EPOCHS)
+    
+    # Generate synthetic data for data augmentation
+    print("\n3.1. Generating synthetic data for augmentation...")
+    synthetic_features = []
+    synthetic_labels = []
+    
+    # Generate more data for underrepresented classes (Sad has lowest recall)
+    class_samples = {
+        0: 60,  # Happy - more samples
+        1: 50,  # Tense - standard
+        2: 80,  # Sad - most samples (lowest recall)
+        3: 50   # Relaxed - standard
+    }
+    
+    for emotion_id in range(NUM_CLASSES):
+        num_samples = class_samples[emotion_id]
+        synthetic_data = gan_mer.generate_synthetic_data(num_samples, emotion_id)
+        synthetic_features.extend(synthetic_data)
+        synthetic_labels.extend([emotion_id] * num_samples)
+    
+    # Combine real and synthetic data
+    combined_features = np.vstack([train_data, np.array(synthetic_features)])
+    combined_labels = np.concatenate([train_labels, np.array(synthetic_labels)])
+    
+    # Create augmented data loader
+    augmented_dataset = [(torch.FloatTensor(features), label) for features, label in zip(combined_features, combined_labels)]
+    augmented_loader = DataLoader(augmented_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    
+    print(f"Training with {len(train_data)} real + {len(synthetic_features)} synthetic samples")
+    
+    # Train classifier with augmented data and validation
+    gan_mer.train_classifier(augmented_loader, val_loader, epochs=CLASSIFIER_EPOCHS)
     
     # Evaluate classifier
     print("\n4. Evaluating classifier...")
