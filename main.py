@@ -8,10 +8,11 @@ from torch.utils.data import Dataset, DataLoader
 import pretty_midi
 import librosa
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, classification_report
+from sklearn.metrics import classification_report
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.preprocessing import RobustScaler
 from typing import List, Tuple, Dict, Optional
 import warnings
 warnings.filterwarnings('ignore')
@@ -32,7 +33,7 @@ class EMOPIADataset(Dataset):
         # Load labels
         labels_df = pd.read_csv(label_file)
         
-        # Emotion mapping based on EMOPIA quadrants
+        # Emotion mapping based on EMOPIA quadrants -- Add, Hopeful, fearful, excited
         self.emotion_mapping = {
             1: "Happy",      # Q1: High Valence, High Arousal
             2: "Tense",      # Q2: Low Valence, High Arousal  
@@ -47,7 +48,6 @@ class EMOPIADataset(Dataset):
             
             if os.path.exists(midi_path):
                 try:
-                    # Extract features from MIDI
                     features = self.extract_midi_features(midi_path)
                     if features is not None:
                         self.data.append(features)
@@ -55,19 +55,18 @@ class EMOPIADataset(Dataset):
                 except Exception as e:
                     print(f"Error processing {midi_file}: {e}")
         
-        # Convert to numpy arrays
         self.data = np.array(self.data)
         self.labels = np.array(self.labels)
         
-        # Normalize features (important for neural network training)
-        from sklearn.preprocessing import RobustScaler
-        scaler = RobustScaler()  # More robust to outliers than StandardScaler
+        scaler = RobustScaler()
         self.data = scaler.fit_transform(self.data)
         
         print(f"Loaded {len(self.data)} samples with {len(np.unique(self.labels))} emotion classes")
     
     def extract_midi_features(self, midi_path: str) -> Optional[np.ndarray]:
         """Extract musical features from MIDI file using both pretty_midi and librosa"""
+
+        # Question: What are the key features that will say "this is a sad song" vs "this is a happy song"?
         try:
             midi_data = pretty_midi.PrettyMIDI(midi_path)
             
@@ -1076,23 +1075,23 @@ def main():
         synthetic_data = gan_mer.generate_synthetic_data(10, emotion_id)
         print(f"Generated {len(synthetic_data)} samples for {emotion_name}")
     
-    # Example recommendation
-    print("\n7. Testing recommendation system...")
+    # # Example recommendation
+    # print("\n7. Testing recommendation system...")
     
-    # Find a sample MIDI file for testing
-    sample_files = [f for f in os.listdir(MIDI_DIR) if f.endswith('.mid')]
-    if sample_files:
-        sample_file = os.path.join(MIDI_DIR, sample_files[0])
-        print(f"Testing with sample file: {sample_files[0]}")
+    # # Find a sample MIDI file for testing
+    # sample_files = [f for f in os.listdir(MIDI_DIR) if f.endswith('.mid')]
+    # if sample_files:
+    #     sample_file = os.path.join(MIDI_DIR, sample_files[0])
+    #     print(f"Testing with sample file: {sample_files[0]}")
         
-        recommendations = gan_mer.recommend_similar_tracks(sample_file, DATASET_DIR, num_recommendations=5)
+    #     recommendations = gan_mer.recommend_similar_tracks(sample_file, DATASET_DIR, num_recommendations=5)
         
-        if recommendations:
-            print("\nTop 5 recommendations:")
-            for i, rec in enumerate(recommendations, 1):
-                print(f"{i}. {rec['track_id']} - {rec['emotion']} (similarity: {rec['similarity_score']:.3f})")
-        else:
-            print("No recommendations found")
+    #     if recommendations:
+    #         print("\nTop 5 recommendations:")
+    #         for i, rec in enumerate(recommendations, 1):
+    #             print(f"{i}. {rec['track_id']} - {rec['emotion']} (similarity: {rec['similarity_score']:.3f})")
+    #     else:
+    #         print("No recommendations found")
     
     print("\n=== System ready for use! ===")
     print("You can now:")
