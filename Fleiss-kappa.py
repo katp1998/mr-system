@@ -6,13 +6,13 @@ df = pd.read_csv("survey-results.csv")
 
 emotion_cols = ["Happy", "Excited", "Tense", "Fearful", "Sad", "Hopeful"]
 
-# p_ij (proportion of raters per emotion per track)
+# p_ij - proportion of raters per emotion per track
 n = 30
 pij = df[emotion_cols] / n
 print("\nSTEP 1: Proportions (p_ij):")
-print(pij.round(3).head())
+print(pij.round(3))
 
-# P_i (agreement per track)
+# P_i - agreement per track
 pi = (df[emotion_cols] * (df[emotion_cols] - 1)).sum(axis=1) / (n * (n - 1))
 print("\nSTEP 2: Agreement per track (P_i):")
 print(pi.round(3))
@@ -21,7 +21,7 @@ print(pi.round(3))
 P_bar = pi.mean()
 print(f"\nSTEP 3: Mean observed agreement (P'): {P_bar:.3f}")
 
-# p_j (overall proportion per emotion) and expected agreement (P'_e)
+# p_j - overall proportion per emotion and expected agreement (P'_e)
 pj = df[emotion_cols].sum(axis=0) / (len(df) * n)
 P_e_bar = (pj ** 2).sum()
 print("\nSTEP 4: Category proportions (p_j):")
@@ -47,8 +47,3 @@ else:
     interpretation = "Almost perfect agreement"
 
 print(f"Interpretation: {interpretation}")
-
-# Optional verification using statsmodels built-in
-M = df[emotion_cols].to_numpy()
-kappa_check = fleiss_kappa(M, method='fleiss')
-print(f"\nVerification using statsmodels: κ = {kappa_check:.3f}")

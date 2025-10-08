@@ -16,8 +16,8 @@ def main():
     output_dir = "results"
     os.makedirs(output_dir, exist_ok=True)
     
-    # Step 1: Extract features from MIDI files
-    print("\n1. Extracting features from MIDI files...")
+    # 1: Extract features from MIDI files
+    print("\nExtracting features from MIDI files...")
     extractor = MIDIFeatureExtractor()
     
     features_list = []
@@ -25,7 +25,7 @@ def main():
     
     print(f"Found {len(midi_files)} MIDI files")
     
-    for i, midi_file in enumerate(midi_files):  # Process all files
+    for i, midi_file in enumerate(midi_files):  # Iterate over all files
         if i % 100 == 0:
             print(f"Processing file {i+1}/{len(midi_files)}")
         
@@ -39,15 +39,12 @@ def main():
     df = pd.DataFrame(features_list)
     print(f"Extracted features from {len(df)} files")
     
-    # Step 2: Classify emotions
+    # Classify emotions
     print("\n2. Classifying emotions...")
     classifier = EmotionClassifier()
     df = classifier.classify_dataset(df)
     
-    # Step 2.5: Initial EDA on classified dataset
-    print("\n2.5. Exploratory Data Analysis (Classified Dataset)...")
     eda = EDAAnalyzer(output_dir)
-    eda.analyze_dataset(df, "Classified EMOPIA Dataset")
     
     # Show emotion distribution
     emotion_dist = classifier.get_emotion_distribution(df)
@@ -57,8 +54,8 @@ def main():
     # Save initial results
     df.to_csv(f"{output_dir}/initial_features.csv", index=False)
     
-    # Step 3: Balance dataset with GAN
-    print("\n3. Balancing dataset with GAN...")
+    # 3: Balance dataset with GAN
+    print("\nBalancing dataset with GAN...")
     
     # Prepare features for GAN
     numeric_features = df.select_dtypes(include=[np.number]).drop(['emotion'], axis=1, errors='ignore')
@@ -71,25 +68,20 @@ def main():
     # Balance dataset to match the largest category (happy = 553)
     balanced_df = gan.balance_dataset(df, target_samples_per_emotion=553)
     
-    print("Balanced dataset emotion distribution:")
-    print(balanced_df['emotion'].value_counts())
-    
     # Save balanced dataset
-    balanced_df.to_csv(f"{output_dir}/balanced_dataset.csv", index=False)
+    # balanced_df.to_csv(f"{output_dir}/balanced_dataset.csv", index=False)
     
     # Step 3.5: EDA on balanced dataset and comparison
-    print("\n3.5. Exploratory Data Analysis (Balanced Dataset)...")
+    print("\nExploratory Data Analysis (Balanced Dataset)...")
     eda.analyze_dataset(balanced_df, "Balanced Dataset (After GAN)")
     eda.compare_datasets(df, balanced_df)
     
     # Step 3.6: Model training visualizations
-    print("\n3.6. Model Training Visualizations...")
+    print("\nModel Training Visualizations...")
     eda.visualize_training()
-    eda.visualize_model_architecture(gan)
-    eda.visualize_feature_importance(balanced_df)
     
-    # Step 4: Train recommendation system
-    print("\n4. Training recommendation system...")
+    # 4: Train recommendation system
+    print("\nraining recommendation system...")
     rec_system = RecommendationSystem()
     rec_system.train(balanced_df)
     
@@ -98,13 +90,13 @@ def main():
     print("Recommendation system stats:")
     print(stats)
     
-    # Step 5: Test recommendation system
-    print("\n5. Testing recommendation system...")
+    # 5: Test recommendation system
+    print("\nTesting recommendation system...")
     
-    # Find a query file (specify the file you want to test)
+    # Find a query file
     if len(df) > 0:
-        # Option 1: Use a specific file by name
-        target_file = "Q3_veG92Oi-DlU_0.mid"  # Change this to your desired file
+ 
+        target_file = "Q1_0vLPYiPN7qY_0.mid" # CHANGABLE VARIABLE!!
         query_row = df[df['file_path'].str.contains(target_file)]
         
         if len(query_row) > 0:
@@ -143,8 +135,7 @@ def main():
         else:
             print("No recommendations found")
     
-    print("\nSystem completed successfully!")
-    print(f"Results saved in {output_dir}/ directory")
-
+    print("\nWhoo Hoo! System completed successfully!")
+    
 if __name__ == "__main__":
     main()

@@ -1,9 +1,8 @@
 """
-Simple emotion classification based on MIDI feature thresholds
+Simple emotion classification based on MIDI feature thresholds - assumptions
 """
 import pandas as pd
 import numpy as np
-
 class EmotionClassifier:
     def __init__(self):
         self.emotion_thresholds = {
@@ -11,37 +10,67 @@ class EmotionClassifier:
                 'pitch_min': 60, 'pitch_max': 76,
                 'velocity_min': 80, 'velocity_max': 112,
                 'tempo_min': 120, 'tempo_max': 140,
-                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.4
+                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.4,
+                'chord_changes': 1.2,
+                'harmony_complexity': 0.5,
+                'rhythm_mean': 200,
+                'syncopation':0.3,
+                'tempo_variation':4,
             },
             'sad': {
                 'pitch_min': 48, 'pitch_max': 60,
                 'velocity_min': 40, 'velocity_max': 70,
                 'tempo_min': 60, 'tempo_max': 80,
-                'note_overlap_ratio_min': 0.8, 'note_overlap_ratio_max': 1.0
+                'note_overlap_ratio_min': 0.8, 'note_overlap_ratio_max': 1.0,
+                'chord_changes': 0.6,
+                'harmony_complexity': 0.2,
+                'rhythm_mean': 300,
+                'syncopation':0.3,
+                'tempo_variation':4,
             },
             'excited': {
                 'pitch_min': 65, 'pitch_max': 84,
                 'velocity_min': 100, 'velocity_max': 127,
-                'tempo_min': 140, 'tempo_max': 180,
-                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.4
+                'tempo_min': 110, 'tempo_max': 180,
+                'note_overlap_ratio_min': 0.25, 'note_overlap_ratio_max': 0.65,
+                'chord_changes': 1.5,
+                'harmony_complexity': 0.7,
+                'rhythm_mean': 150,
+                'syncopation':0.3,
+                'tempo_variation':4,
             },
             'hopeful': {
                 'pitch_min': 60, 'pitch_max': 76,
                 'velocity_min': 70, 'velocity_max': 100,
                 'tempo_min': 100, 'tempo_max': 130,
-                'note_overlap_ratio_min': 0.6, 'note_overlap_ratio_max': 0.8
+                'note_overlap_ratio_min': 0.6, 'note_overlap_ratio_max': 0.8,
+                'chord_changes': 1,
+                'harmony_complexity': 0.5,
+                'rhythm_mean': 220,
+                'syncopation':0.3,
+                'tempo_variation':4,
             },
             'tense': {
                 'pitch_min': 50, 'pitch_max': 65,
                 'velocity_min': 90, 'velocity_max': 127,
                 'tempo_min': 100, 'tempo_max': 130,
-                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.3
+                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.3,
+                'chord_changes': 1.4,
+                'harmony_complexity': 0.8,
+                'rhythm_mean': 160,
+                'syncopation':0.3,
+                'tempo_variation':4,
             },
             'fearful': {
                 'pitch_min': 45, 'pitch_max': 60,
                 'velocity_min': 50, 'velocity_max': 90,
                 'tempo_min': 60, 'tempo_max': 100,
-                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.3
+                'note_overlap_ratio_min': 0.0, 'note_overlap_ratio_max': 0.3,
+                'chord_changes': 1.3,
+                'harmony_complexity': 0.8,
+                'rhythm_mean': 180,
+                'syncopation':0.3,
+                'tempo_variation':4,
             }
         }
     
