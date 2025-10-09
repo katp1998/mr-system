@@ -1,4 +1,8 @@
-﻿import os
+﻿"""
+Full code found on GitHub: https://github.com/katp1998/mr-system
+"""
+
+import os
 import pandas as pd
 import numpy as np
 from feature_extractor import MIDIFeatureExtractor
@@ -71,16 +75,16 @@ def main():
     # Save balanced dataset
     # balanced_df.to_csv(f"{output_dir}/balanced_dataset.csv", index=False)
     
-    # Step 3.5: EDA on balanced dataset and comparison
+    # EDA on balanced dataset and comparison
     print("\nExploratory Data Analysis (Balanced Dataset)...")
     eda.analyze_dataset(balanced_df, "Balanced Dataset (After GAN)")
     eda.compare_datasets(df, balanced_df)
     
-    # Step 3.6: Model training visualizations
+    # Model training visualizations
     print("\nModel Training Visualizations...")
     eda.visualize_training()
     
-    # 4: Train recommendation system
+    # Train recommendation system
     print("\nraining recommendation system...")
     rec_system = RecommendationSystem()
     rec_system.train(balanced_df)

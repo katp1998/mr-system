@@ -1,6 +1,3 @@
-"""
-Simple GAN for data augmentation
-"""
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
@@ -22,7 +19,7 @@ class SimpleGAN:
         self.combined = self._build_combined()
     
     def _build_generator(self):
-        """Build simple generator"""
+        """simple generator"""
         model = keras.Sequential([
             keras.layers.Dense(256, activation='relu', input_dim=self.noise_dim),
             keras.layers.Dense(512, activation='relu'),
@@ -31,7 +28,7 @@ class SimpleGAN:
         return model
     
     def _build_discriminator(self):
-        """Build simple discriminator"""
+        """simple discriminator"""
         model = keras.Sequential([
             keras.layers.Dense(512, activation='relu', input_dim=self.feature_dim),
             keras.layers.Dense(256, activation='relu'),
@@ -40,7 +37,7 @@ class SimpleGAN:
         return model
     
     def _build_combined(self):
-        """Build combined model for training generator"""
+        """combined model for training generator"""
         self.discriminator.trainable = False
         model = keras.Sequential([
             self.generator,
@@ -50,14 +47,14 @@ class SimpleGAN:
     
     def _compile_models(self):
         """Compile all models"""
-        # Compile discriminator
+        # discriminator
         self.discriminator.compile(
             optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
             loss='binary_crossentropy',
             metrics=['accuracy']
         )
         
-        # Compile combined model
+        # combined model
         self.combined.compile(
             optimizer=keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5),
             loss='binary_crossentropy'
@@ -69,7 +66,7 @@ class SimpleGAN:
         if len(emotion_data) == 0:
             return None, None
         
-        # Select numeric features only
+        # numeric features only
         numeric_features = emotion_data.select_dtypes(include=[np.number]).drop(['emotion'], axis=1, errors='ignore')
         
         # Scale features

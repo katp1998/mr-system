@@ -1,6 +1,3 @@
-"""
-Simple recommendation system based on feature similarity
-"""
 import pandas as pd
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity

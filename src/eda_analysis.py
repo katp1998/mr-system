@@ -1,6 +1,3 @@
-"""
-Exploratory Data Analysis (EDA) for Music Emotion Analysis
-"""
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,7 +10,7 @@ class EDAAnalyzer:
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
         
-        # Set style for better plots
+        # Set a style for better plots
         plt.style.use('seaborn-v0_8')
         sns.set_palette("husl")
         
@@ -25,7 +22,7 @@ class EDAAnalyzer:
         }
     
     def analyze_dataset(self, df, title="Music Emotion Dataset"):
-        """Perform comprehensive EDA on the dataset"""
+        """Do EDA on the dataset"""
         print(f"\n{'='*60}")
         print(f"EXPLORATORY DATA ANALYSIS: {title}")
         print(f"{'='*60}")
@@ -203,9 +200,9 @@ class EDAAnalyzer:
         
         # Calculate training phases
         total_epochs = len(progress_epochs)
-        early_phase = progress_epochs[:total_epochs//3]
-        mid_phase = progress_epochs[total_epochs//3:2*total_epochs//3]
-        late_phase = progress_epochs[2*total_epochs//3:]
+        # early_phase = progress_epochs[:total_epochs//3]
+        # mid_phase = progress_epochs[total_epochs//3:2*total_epochs//3]
+        # late_phase = progress_epochs[2*total_epochs//3:]
         
         phases = ['Early', 'Mid', 'Late']
         d_loss_phases = [

@@ -1,11 +1,8 @@
-"""
-Simple MIDI feature extraction for emotion classification
-"""
-import os
+# import os
 import pandas as pd
 import numpy as np
 import pretty_midi
-from music21 import stream, pitch, key, meter, tempo
+# from music21 import stream, pitch, key, meter, tempo
 
 class MIDIFeatureExtractor:
     def __init__(self):

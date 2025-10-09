@@ -398,3 +398,11 @@ Top 5 similar tracks:
 
 Test Accuracy: 100.0% (5/5 correct predictions)
 Query emotion category: sad
+
+
+0.179
+0.139
+0.147
+0.077
+0.243
+0.216
